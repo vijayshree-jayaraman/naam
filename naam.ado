@@ -136,6 +136,7 @@ program define naam_encode
             di as err "No string variables found"
             exit 109
         }
+        * Build new encode entries
         set obs `nvalid'
         gen str32  varname  = ""
         gen str244 varlabel = ""
@@ -149,8 +150,40 @@ program define naam_encode
             replace varlabel = `"`m_vl_`i''"'  in `j'
             local ++j
         }
-        export excel varname varlabel type using `"`fname'"', ///
-            sheet("index") sheetreplace firstrow(variables)
+        tempfile new_entries
+        save `"`new_entries'"', replace
+        * Merge with existing index if it exists
+        capture {
+            import excel using `"`fname'"', sheet("index") firstrow clear allstring
+            * Remove any existing rows for variables we are about to write
+            * (avoids duplicate rows if naam encode is re-run)
+            tempfile existing_idx
+            save `"`existing_idx'"', replace
+            use `"`existing_idx'"', clear
+            * Drop rows whose varname appears in new_entries
+            use `"`new_entries'"', clear
+            rename varname new_varname
+            rename varlabel new_varlabel
+            rename type new_type
+            tempfile new_clean
+            save `"`new_clean'"', replace
+            use `"`existing_idx'"', clear
+            * Keep existing rows not being overwritten
+            merge m:1 varname using `"`new_clean'"', keepusing(new_varname) nogen
+            drop if new_varname != ""
+            drop new_varname
+            * Append new encode entries
+            append using `"`new_entries'"'
+            sort type varname
+            export excel varname varlabel type using `"`fname'"', ///
+                sheet("index") sheetreplace firstrow(variables)
+        }
+        if _rc {
+            * No existing file — just write new entries
+            use `"`new_entries'"', clear
+            export excel varname varlabel type using `"`fname'"', ///
+                sheet("index") sheetreplace firstrow(variables)
+        }
     }
     restore
     di as txt "  -> [index] written."
@@ -403,8 +436,33 @@ program define naam_export
             replace vartype  = `"`m_type_`i''"'  in `i'
             replace lblname  = `"`m_lbn_`i''"'   in `i'
         }
-        export excel varname varlabel vartype lblname type using `"`fname'"', ///
-            sheet("index") sheetreplace firstrow(variables)
+        tempfile new_entries
+        save `"`new_entries'"', replace
+        * Merge with existing index if it exists — preserve encode entries
+        capture {
+            import excel using `"`fname'"', sheet("index") firstrow clear allstring
+            tempfile existing_idx
+            save `"`existing_idx'"', replace
+            * Only keep existing rows that are NOT type export
+            * (i.e. preserve encode and id rows)
+            keep if type != "export"
+            * Append new export entries
+            append using `"`new_entries'"'
+            sort type varname
+            * Write combined index back
+            capture confirm variable vartype
+            if _rc gen str16 vartype = ""
+            capture confirm variable lblname
+            if _rc gen str32 lblname = ""
+            export excel varname varlabel vartype lblname type using `"`fname'"', ///
+                sheet("index") sheetreplace firstrow(variables)
+        }
+        if _rc {
+            * No existing file — just write new entries
+            use `"`new_entries'"', clear
+            export excel varname varlabel vartype lblname type using `"`fname'"', ///
+                sheet("index") sheetreplace firstrow(variables)
+        }
     }
     restore
     di as txt "  -> [index] written."
