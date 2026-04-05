@@ -12,6 +12,7 @@
 *!
 *! Subcommands:
 *!   naam encode  : encode string vars and save exact mappings to Excel
+*!                   (,all option also saves numeric vars with value labels)
 *!   naam apply   : reapply saved mappings to any file instantly
 *!   naam id      : convert alphanumeric IDs to consistent numerics
 *!   naam export  : save labels from already-encoded datasets
@@ -58,9 +59,11 @@ end
 * -----------------------------------------------------------------------------
 program define naam_encode
 * Encode string variables to numeric and save exact mappings to Excel.
+* When ,all is specified, also saves numeric variables with value labels
+* as type=export in the same xlsx -- no need for a separate naam export call.
 * -----------------------------------------------------------------------------
     version 14.0
-    syntax varlist using/ [, replace keep]
+    syntax varlist using/ [, replace keep ALL]
     local fname `"`using'"'
     if substr(`"`fname'"',-5,5)!=".xlsx" & substr(`"`fname'"',-4,4)!=".xls" {
         local fname `"`fname'.xlsx"'
@@ -123,6 +126,46 @@ program define naam_encode
         quietly rename _enc_`v' `v'
         local ++i
     }
+    * --- If ,all specified: collect numeric vars with value labels -----------
+    local n_export 0
+    if "`all'" != "" {
+        quietly ds
+        foreach v of varlist `r(varlist)' {
+            * Skip vars already in the encode varlist
+            local already 0
+            forval i = 1/`nvars' {
+                if "`m_name_`i''" == "`v'" local already 1
+            }
+            if `already' continue
+            * Skip strings
+            local vtype : type `v'
+            if substr("`vtype'",1,3) == "str" continue
+            * Skip ID vars (no value label, high cardinality)
+            local lbname : value label `v'
+            if "`lbname'" == "" continue
+            * Collect label mapping
+            local ++n_export
+            local ex_name_`n_export' "`v'"
+            local ex_vl_`n_export'   : variable label `v'
+            local ex_lbn_`n_export'  "`lbname'"
+            quietly label list `lbname'
+            local kmin = r(min)
+            local kmax = r(max)
+            local ex_nvals_`n_export' 0
+            forval code = `kmin'/`kmax' {
+                local txt : label `lbname' `code', strict
+                if `"`txt'"' != "" {
+                    local ++ex_nvals_`n_export'
+                    local ex_code_`n_export'_`ex_nvals_`n_export'' `code'
+                    local ex_txt_`n_export'_`ex_nvals_`n_export''  `"`txt'"'
+                }
+            }
+        }
+        if `n_export' > 0 {
+            di as txt "  ,all: found `n_export' numeric variable(s) with value labels to export."
+        }
+    }
+
     preserve
     quietly {
         clear
@@ -132,15 +175,16 @@ program define naam_encode
                 local ++nvalid
             }
         }
-        if `nvalid' == 0 {
+        local ntotal = `nvalid' + `n_export'
+        if `ntotal' == 0 {
             di as err "No string variables found"
             exit 109
         }
-        * Build new encode entries
-        set obs `nvalid'
+        set obs `ntotal'
         gen str32  varname  = ""
         gen str244 varlabel = ""
-        gen str10  type     = "encode"
+        gen str10  type     = ""
+        * Write encode entries
         local j 1
         forval i = 1/`nvars' {
             if `m_nvals_`i'' == 0 {
@@ -148,45 +192,23 @@ program define naam_encode
             }
             replace varname  = "`m_name_`i''"  in `j'
             replace varlabel = `"`m_vl_`i''"'  in `j'
+            replace type     = "encode"         in `j'
             local ++j
         }
-        tempfile new_entries
-        save `"`new_entries'"', replace
-        * Merge with existing index if it exists
-        capture {
-            import excel using `"`fname'"', sheet("index") firstrow clear allstring
-            * Remove any existing rows for variables we are about to write
-            * (avoids duplicate rows if naam encode is re-run)
-            tempfile existing_idx
-            save `"`existing_idx'"', replace
-            use `"`existing_idx'"', clear
-            * Drop rows whose varname appears in new_entries
-            use `"`new_entries'"', clear
-            rename varname new_varname
-            rename varlabel new_varlabel
-            rename type new_type
-            tempfile new_clean
-            save `"`new_clean'"', replace
-            use `"`existing_idx'"', clear
-            * Keep existing rows not being overwritten
-            merge m:1 varname using `"`new_clean'"', keepusing(new_varname) nogen
-            drop if new_varname != ""
-            drop new_varname
-            * Append new encode entries
-            append using `"`new_entries'"'
-            sort type varname
-            export excel varname varlabel type using `"`fname'"', ///
-                sheet("index") sheetreplace firstrow(variables)
+        * Write export entries
+        forval i = 1/`n_export' {
+            replace varname  = "`ex_name_`i''"  in `j'
+            replace varlabel = `"`ex_vl_`i''"'  in `j'
+            replace type     = "export"          in `j'
+            local ++j
         }
-        if _rc {
-            * No existing file — just write new entries
-            use `"`new_entries'"', clear
-            export excel varname varlabel type using `"`fname'"', ///
-                sheet("index") sheetreplace firstrow(variables)
-        }
+        export excel varname varlabel type using `"`fname'"', ///
+            sheet("index") sheetreplace firstrow(variables)
     }
     restore
     di as txt "  -> [index] written."
+
+    * Write encode mapping sheets
     forval i = 1/`nvars' {
         if `m_nvals_`i'' == 0 {
             continue
@@ -208,6 +230,28 @@ program define naam_encode
         restore
         di as txt "  -> [`m_name_`i''] written (`m_nvals_`i'' categories)."
     }
+
+    * Write export label sheets
+    forval i = 1/`n_export' {
+        if `ex_nvals_`i'' == 0 continue
+        preserve
+        quietly {
+            clear
+            set obs `ex_nvals_`i''
+            gen str20  numeric_code = ""
+            gen str244 string_value = ""
+            forval e = 1/`ex_nvals_`i'' {
+                replace numeric_code = "`ex_code_`i'_`e''"   in `e'
+                replace string_value = `"`ex_txt_`i'_`e''"'  in `e'
+            }
+            local shname = substr("`ex_name_`i''",1,31)
+            export excel numeric_code string_value using `"`fname'"', ///
+                sheet("`shname'") sheetreplace firstrow(variables)
+        }
+        restore
+        di as txt "  -> [`ex_name_`i''] exported (`ex_nvals_`i'' labels)."
+    }
+
     di as res `"naam encode complete -> `fname'"'
 end
 
@@ -436,33 +480,8 @@ program define naam_export
             replace vartype  = `"`m_type_`i''"'  in `i'
             replace lblname  = `"`m_lbn_`i''"'   in `i'
         }
-        tempfile new_entries
-        save `"`new_entries'"', replace
-        * Merge with existing index if it exists — preserve encode entries
-        capture {
-            import excel using `"`fname'"', sheet("index") firstrow clear allstring
-            tempfile existing_idx
-            save `"`existing_idx'"', replace
-            * Only keep existing rows that are NOT type export
-            * (i.e. preserve encode and id rows)
-            keep if type != "export"
-            * Append new export entries
-            append using `"`new_entries'"'
-            sort type varname
-            * Write combined index back
-            capture confirm variable vartype
-            if _rc gen str16 vartype = ""
-            capture confirm variable lblname
-            if _rc gen str32 lblname = ""
-            export excel varname varlabel vartype lblname type using `"`fname'"', ///
-                sheet("index") sheetreplace firstrow(variables)
-        }
-        if _rc {
-            * No existing file — just write new entries
-            use `"`new_entries'"', clear
-            export excel varname varlabel vartype lblname type using `"`fname'"', ///
-                sheet("index") sheetreplace firstrow(variables)
-        }
+        export excel varname varlabel vartype lblname type using `"`fname'"', ///
+            sheet("index") sheetreplace firstrow(variables)
     }
     restore
     di as txt "  -> [index] written."
