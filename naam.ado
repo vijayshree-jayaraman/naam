@@ -202,6 +202,32 @@ program define naam_encode
             replace type     = "export"          in `j'
             local ++j
         }
+        * Merge with existing index so prior variables are not wiped
+        tempfile newidx
+        save `"`newidx'"', replace
+        capture confirm file `"`fname'"'
+        if !_rc {
+            capture {
+                import excel using `"`fname'"', sheet("index") firstrow clear allstring
+                confirm variable varname
+                * Drop rows for variables being updated in this call
+                forval i = 1/`nvars' {
+                    if `m_nvals_`i'' > 0 {
+                        drop if varname == "`m_name_`i''"
+                    }
+                }
+                forval i = 1/`n_export' {
+                    drop if varname == "`ex_name_`i''"
+                }
+                append using `"`newidx'"'
+            }
+            if _rc {
+                use `"`newidx'"', clear
+            }
+        }
+        else {
+            use `"`newidx'"', clear
+        }
         export excel varname varlabel type using `"`fname'"', ///
             sheet("index") sheetreplace firstrow(variables)
     }
