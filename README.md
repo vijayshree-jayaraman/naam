@@ -103,31 +103,17 @@ In practice, switching from string IDs to numeric using `naam id` can reduce fil
 ## Changelog
 
 ### v1.1.1
-- **Bug fix**: `naam id` now preserves the full prior ID mapping when processing later files, so numeric codes are never reused for all-new or partially-new rounds.
-- **Bug fix**: `naam id` validates saved mappings before merge; exact duplicate rows are tolerated, but conflicting duplicate strings or duplicate numeric codes now stop the command.
-- **Bug fix**: `naam id, strict` now fails if no valid saved mapping exists, and exits immediately when unexpected new IDs appear.
-- **Bug fix**: `naam id import` validates mapping uniqueness before merge and refuses to replace a numeric ID with blank strings when unmatched IDs are present; use `,suffix()` to inspect unmatched values safely.
-- **Robustness**: Excel mapping files now store a `sheetname` column in the index and abort on 31-character sheet-name collisions instead of silently overwriting a mapping sheet.
-- **Docs**: clarified `,replace` behavior and documented the implemented `naam encode, all` option.
+- Fixed ID mapping updates so numeric IDs are never reused across files.
+- Added stronger validation for duplicate/corrupt mappings.
+- Improved `naam id import`, strict mode, long variable names, row-order preservation, and documentation.
 
 ### v1.1.0
-- **New**: `naam id import` subcommand - convert numeric IDs back to original strings using saved `.dta` mapping files
-- **Bug fix**: `naam id` - duplicate rows were silently created when an existing mapping had duplicate `string_value` entries; now deduplicated before merge
-- **Bug fix**: `naam id` - new ID codes for unmatched observations were grouped using the wrong variable (the already-renamed numeric version); fixed to use the string backup `_str_v`
-- **Bug fix**: `naam id` - `sort` added before `egen group()` to ensure stable, alphabetical code assignment on fresh encode
-- **Bug fix**: `naam id` - the `,replace` option was accepted in syntax but silently ignored; invalid existing mappings now require `,replace` before they are discarded
-- **Bug fix**: `naam id import` - the `,suffix()` and `,keep` options previously produced the same output regardless of which was specified; redesigned so the three modes are distinct and mutually exclusive (see help file)
-- **Bug fix**: `naam encode` / `naam export` / `naam apply` - `numeric_code` was stored as `str20` (string) in Excel sheets; this caused type mismatches on merge and label define. Now stored as `long` in the dataset before export
-- **Bug fix**: `naam apply` / `naam decode` - `nval == 0` (empty mapping sheet) was not guarded, causing macro errors; now skipped with a warning
-- **Bug fix**: `naam apply` - updated hint message for ID variables now correctly references `naam id import`
-- **Bug fix**: `naam list` - ID variables now display a hint about `naam id import`
-- **Bug fix**: `naam id` - `n_processed` was incremented at variable entry (after the type check) rather than at completion, so if all variables were skipped by the `,replace` guard the final "no variables found" error was never raised; counter now incremented only on successful completion
-- **Bug fix**: `naam apply` - mapping sheet load only confirmed `numeric_code` existed, not `string_value`; a malformed sheet with only one column would load silently and produce empty labels with no error; both columns are now confirmed
-- **Bug fix**: `naam check` - if the user supplied a varlist but every variable failed the `confirm variable` check, the command exited silently having checked nothing; now raises an explicit error
-- **Bug fix**: `naam id` - duplicate `confirm file` call (once for the replace guard, once for `file_exists`) removed; single check now sets `file_exists` directly, eliminating the redundancy
+- Added `naam id import`.
+- Fixed several mapping and label-restore edge cases.
 
 ### v1.0.1
-- Initial release
+- Initial release.
+
 
 ---
 
