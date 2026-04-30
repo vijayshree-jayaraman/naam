@@ -1,4 +1,4 @@
-d 'NAAM': module for consistent string encoding, ID hashing, and label management
+d 'NAAM': module for consistent string encoding, ID management, and label tracking
 d
 d  naam ("What's in a naam?") addresses a common problem in
 d  large-scale survey and administrative data work: encoding string
@@ -13,14 +13,15 @@ d  subsequent dataset, guaranteeing the same string always receives
 d  the same numeric code. The Excel file also serves as a permanent,
 d  human-readable audit record of every mapping in the project.
 d
-d  naam encode  : encode string variables and save mappings to Excel
-d  naam apply   : reattach saved mappings; auto-register new categories
-d  naam id      : convert string IDs to consistent numerics; saves mappings as .dta (no row limit)
-d  naam export  : save value labels from an already-encoded dataset
-d  naam list    : inspect a mapping file from inside Stata
-d  naam decode  : reverse encoding -- numeric back to original strings
-d  naam check   : verify in-memory labels against saved mapping (QA)
-d  naam compare : compare two mapping files against each other
+d  naam encode     : encode string variables and save mappings to Excel
+d  naam apply      : reattach saved mappings; auto-register new categories
+d  naam id         : convert string IDs to consistent numerics; saves mappings as .dta (no row limit)
+d  naam id import  : convert numeric IDs back to original strings
+d  naam export     : save value labels from an already-encoded dataset
+d  naam list       : inspect a mapping file from inside Stata
+d  naam decode     : reverse encoding -- numeric back to original strings
+d  naam check      : verify in-memory labels against saved mapping (QA)
+d  naam compare    : compare two mapping files against each other
 d
 d  Inspired by codebookout (Das, 2014: S457811, Boston College).
 d
@@ -40,9 +41,12 @@ d Author: Vijayshree Jayaraman
 d Email:  jvijayshree26@gmail.com
 d URL:    https://github.com/vijayshree-jayaraman
 d
-d Distribution-Date: 20260404
+d Distribution-Date: 20260430
 d
 f naam.ado
 f naam.sthlp
+f README.md
+f example_naam.do
+f LICENSE
 f naam_round1.dta
 f naam_round2.dta

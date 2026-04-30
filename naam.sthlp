@@ -1,5 +1,5 @@
 {smcl}
-{* naam.sthlp  version 1.0.1  4 April 2026}{...}
+{* naam.sthlp  version 1.1.1  30 April 2026}{...}
 {hline}
 help for {cmd:naam}
 {hline}
@@ -7,8 +7,8 @@ help for {cmd:naam}
 {title:Title}
 
 {p2colset 5 18 20 2}{...}
-{p2col:{hi:naam} {hline 2}}Consistent string encoding, ID hashing, and label
-    management across multiple datasets{p_end}
+{p2col:{hi:naam} {hline 2}}Consistent string encoding, ID management,
+    and value-label tracking across multiple datasets{p_end}
 {p2colreset}{...}
 
 
@@ -16,7 +16,7 @@ help for {cmd:naam}
 
 {p 8 17 2}
 {cmd:naam encode} {varlist} {cmd:using} {it:{help filename}}
-    [{cmd:,} {opt replace} {opt keep}]
+    [{cmd:,} {opt replace} {opt keep} {opt all}]
 
 {p 8 17 2}
 {cmd:naam apply} {cmd:using} {it:{help filename}}
@@ -25,6 +25,10 @@ help for {cmd:naam}
 {p 8 17 2}
 {cmd:naam id} {varlist} {cmd:using} {it:{help filename}}
     [{cmd:,} {opt replace} {opt keep} {opt strict}]
+
+{p 8 17 2}
+{cmd:naam id import} {varlist} {cmd:using} {it:{help filename}}
+    [{cmd:,} {opt keep} {opt suffix(string)}]
 
 {p 8 17 2}
 {cmd:naam export} {cmd:using} {it:{help filename}}
@@ -46,10 +50,11 @@ help for {cmd:naam}
     {cmd:,} {opt using2(filename2)}
 
 {pstd}
-For all subcommands except {cmd:naam id}, {it:filename} refers to an Excel workbook (.xlsx);
-the {cmd:.xlsx} extension is appended automatically if omitted.
-{cmd:naam id} saves each variable's mapping as a separate Stata .dta file
-({it:filename_varname.dta}), with no row-count limit.
+For {cmd:naam encode}, {cmd:naam apply}, {cmd:naam export}, {cmd:naam list},
+{cmd:naam decode}, {cmd:naam check}, and {cmd:naam compare}, {it:filename}
+refers to an Excel workbook (.xlsx); the {cmd:.xlsx} extension is appended
+automatically if omitted. {cmd:naam id} and {cmd:naam id import} use Stata
+.dta mapping files named {it:filename_varname.dta}, with no row-count limit.
 
 
 {marker description}{...}
@@ -74,14 +79,32 @@ every subsequent file. The same string always receives the same numeric code.
 New categories are detected automatically, assigned the next available code,
 and the Excel file is updated. The Excel file also serves as a permanent,
 human-readable audit record of every mapping in the project. ID variables
-are handled separately by {cmd:naam id}, which saves mappings as native
-Stata .dta files with no row-count limit.
+are handled separately by {cmd:naam id} and {cmd:naam id import}, which save
+and read mappings as native Stata .dta files with no row-count limit.
 
 {pstd}
-{cmd:naam} requires no user-written dependencies. All subcommands read and
-write standard .xlsx files using Stata{c 39}s built-in {helpb import excel}
-and {helpb export excel}. {cmd:naam id} reads and writes .dta files using
-{helpb use} and {helpb save}.
+{cmd:naam} requires no user-written dependencies. Excel-based subcommands
+read and write standard .xlsx files using Stata{c 39}s built-in
+{helpb import excel} and {helpb export excel}. {cmd:naam id} and
+{cmd:naam id import} use .dta files via {helpb use} and {helpb save}.
+
+
+{marker installation}{...}
+{title:Installation}
+
+{pstd}
+Install the released version from SSC:
+
+{phang2}{cmd:. ssc install naam, all}{p_end}
+
+{pstd}
+Install the development version from GitHub:
+
+{phang2}{cmd:. net install naam, from("https://raw.githubusercontent.com/vijayshree-jayaraman/naam/main/")}{p_end}
+
+{pstd}
+This installs the package and the sample datasets ({cmd:naam_round1.dta},
+{cmd:naam_round2.dta}) used in the examples below.
 
 
 {marker subcommands}{...}
@@ -102,6 +125,10 @@ and {helpb export excel}. {cmd:naam id} reads and writes .dta files using
     ({it:base_varname.dta}), one per ID variable, with no row-count limit.
     Use {cmd:naam id} on each file; do not use {cmd:naam apply} for ID
     variables.{p_end}
+{p2col:{cmd:naam id import}}Restores original string IDs from mappings
+    created by {cmd:naam id}. By default it replaces the numeric variable
+    with the string ID; options let you keep the numeric variable or create
+    a new string variable alongside it.{p_end}
 {p2col:{cmd:naam export}}When your dataset already has numbers with labels
     attached, this saves those labels into Excel so you can restore them
     later if they get stripped.{p_end}
@@ -129,21 +156,38 @@ and {helpb export excel}. {cmd:naam id} reads and writes .dta files using
 {dlgtab:naam encode and naam id}
 
 {phang}
-{opt replace} overwrites the mapping file if it already exists. For
-{cmd:naam encode} and {cmd:naam export} this is the .xlsx file; for
-{cmd:naam id} this is the per-variable .dta file. Required the first
-time a mapping file is created for a given filename.
+{opt replace} allows {cmd:naam id} to discard an invalid existing .dta
+mapping and create a fresh one. Valid existing ID mappings are updated
+in place without requiring {cmd:replace}. Excel-based commands update
+mapping sheets in place.
 
 {phang}
 {opt keep} retains the original string variable alongside the new numeric
 variable, renamed {it:_str_varname}.
 
+{phang}
+{opt all} with {cmd:naam encode} also exports numeric variables that
+already have value labels attached, so their labels can be restored by
+{cmd:naam apply}.
+
 {dlgtab:naam id only}
 
 {phang}
 {opt strict} exits with an error if the current dataset contains any ID
-value not found in the saved mapping. Use this to enforce that no unexpected
-new observations appear in a subsequent file.
+value not found in the saved mapping, or if no valid saved mapping exists.
+Use this to enforce that no unexpected new observations appear in a
+subsequent file.
+
+{dlgtab:naam id import only}
+
+{phang}
+{opt keep} replaces the ID variable with its original string values and
+keeps the numeric ID as {it:_num_varname}.
+
+{phang}
+{opt suffix(string)} leaves the numeric ID variable unchanged and creates
+a new string variable named {it:varname+suffix}. {cmd:keep} and
+{cmd:suffix()} may not be combined.
 
 {dlgtab:naam apply only}
 
@@ -154,11 +198,6 @@ encodings.
 {phang}
 {opt labelsonly} reattaches value labels and encodings only; skips variable
 labels.
-
-{dlgtab:naam export only}
-
-{phang}
-{opt replace} overwrites the Excel file if it already exists.
 
 {dlgtab:naam list only}
 
@@ -220,6 +259,17 @@ native Stata .dta file ({it:base_varname.dta}). On every {it:subsequent}
 file, the saved mapping is read: known IDs receive their original codes,
 and new IDs receive the next available sequential codes. There is no
 row-count limit.
+
+{dlgtab:naam id import}
+
+{pstd}
+Restores original string IDs from mappings created by {cmd:naam id}. By
+default, the numeric variable is replaced by the original string ID. With
+{cmd:, keep}, the numeric variable is retained as {it:_num_varname}. With
+{cmd:, suffix(str)}, the numeric variable is left unchanged and a new string
+variable {it:varname+suffix} is created. If numeric IDs are not found in the
+saved mapping, the command refuses to replace the numeric variable with
+blank strings; use {cmd:suffix()} to inspect unmatched values safely.
 
 {dlgtab:naam export}
 
@@ -284,9 +334,13 @@ and attached in the dataset.
 a warning.
 
 {phang}
-{c 149} Excel sheet names are truncated to 31 characters if the variable
-name is longer. This applies to {cmd:naam encode} and {cmd:naam export};
-{cmd:naam id} is unaffected as it writes .dta files, not Excel sheets.
+{c 149} Excel sheet names are limited to 31 characters. {cmd:naam}
+records the actual sheet name in the index and refuses ambiguous
+31-character sheet-name collisions rather than overwriting a mapping.
+
+{phang}
+{c 149} With {cmd:, keep}, backup names are shortened when needed to stay
+within Stata's 32-character variable-name limit.
 
 
 {marker excel}{...}
@@ -298,7 +352,8 @@ name is longer. This applies to {cmd:naam encode} and {cmd:naam export};
 {p2colset 5 24 26 2}
 {p2col:Sheet {it:index}}One row per processed variable. Columns:
     {it:varname}, {it:varlabel}, {it:type} (encode / export / id),
-    and for {cmd:naam export} also {it:lblname} and {it:vartype}.{p_end}
+    {it:sheetname}, and for {cmd:naam export} also {it:lblname} and
+    {it:vartype}.{p_end}
 {p2col:Sheet {it:<varname>}}One sheet per variable with a mapping.
     Columns: {it:numeric_code} and {it:string_value}.{p_end}
 {p2colreset}
@@ -324,7 +379,7 @@ Both contain string variables {cmd:district}, {cmd:occupation}, and
 {cmd:religion}, and an alphanumeric household ID {cmd:hhid} in the
 format HH-MH-NNNNN. Install them with:{p_end}
 
-{phang2}{cmd:. ssc install naam, all}{p_end}
+{phang2}{cmd:. net install naam, from("https://raw.githubusercontent.com/vijayshree-jayaraman/naam/main/")}{p_end}
 
 {pstd}{ul:Example 1 -- naam encode and naam apply}
 
@@ -383,7 +438,8 @@ format HH-MH-NNNNN. Install them with:{p_end}
 
 {pstd}
 {cmd:naam} does not store results in {cmd:r()} or {cmd:e()}.
-Output is written to the Excel file or .dta file specified in {cmd:using}.
+Some subcommands modify the data in memory; mappings are written to the
+Excel file or .dta file specified in {cmd:using}.
 
 
 {marker requirements}{...}
@@ -400,8 +456,17 @@ Stata 14 or higher. No user-written packages are required.
 {title:Citation}
 
 {pstd}
-{cmd:naam} is inspired by {cmd:codebookout}. If you use {cmd:naam},
-please also cite the original package:
+If you use {cmd:naam}, please cite:
+
+{phang2}
+Jayaraman, Vijayshree (2026). {c 34}naam: Consistent string encoding,
+ID management, and label tracking across Stata datasets.{c 34}
+Available at: {browse "https://github.com/vijayshree-jayaraman/naam":https://github.com/vijayshree-jayaraman/naam}.
+{p_end}
+
+{pstd}
+{cmd:naam} is inspired by {cmd:codebookout}. Please also cite the original
+package:
 
 {phang2}
 Das, Kishor K. (2014). {c 34}CODEBOOKOUT: Stata module to save codebook

@@ -1,2 +1,2 @@
 v 3
-p naam Consistent string encoding, ID hashing, and label management
+p naam Consistent string encoding, ID management, and label tracking

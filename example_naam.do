@@ -1,5 +1,5 @@
 * =============================================================================
-* naam: example workflow
+* naam: example workflow (v1.1.1)
 * =============================================================================
 * This do-file demonstrates the full naam workflow using the two sample
 * datasets installed with the package: naam_round1.dta and naam_round2.dta
@@ -12,6 +12,8 @@
 
 * Install naam if not already installed
 * ssc install naam, all
+* Development version:
+* net install naam, from("https://raw.githubusercontent.com/vijayshree-jayaraman/naam/main/")
 
 
 * -----------------------------------------------------------------------------
@@ -65,13 +67,31 @@ naam list using naam_maps.xlsx
 * Check that in-memory labels match the saved mapping
 naam check district occupation religion using naam_maps.xlsx
 
-* Decode a variable back to its original strings
+* Decode a variable back to its original strings (uses Excel mapping)
 naam decode district using naam_maps.xlsx
 tab district
 
 
 * -----------------------------------------------------------------------------
-* PART 5: Export and restore labels (naam export / naam apply workflow)
+* PART 5: ID import -- convert numeric IDs back to original strings
+* -----------------------------------------------------------------------------
+* After naam id, hhid is stored as a numeric. Use naam id import to get
+* the original string IDs back. This is the counterpart to naam id.
+
+* Option A: replace hhid with its original string (default)
+naam id import hhid using naam_ids
+list hhid in 1/5
+
+* Option B: keep the numeric as _num_hhid and restore string to hhid
+* naam id import hhid using naam_ids, keep
+
+* Option C: keep numeric hhid intact; create new variable hhid_str alongside it
+* (,suffix and ,keep are mutually exclusive)
+* naam id import hhid using naam_ids, suffix(_str)
+
+
+* -----------------------------------------------------------------------------
+* PART 6: Export and restore labels (naam export / naam apply workflow)
 * -----------------------------------------------------------------------------
 
 sysuse auto, clear
@@ -86,3 +106,11 @@ tab foreign    // shows 0 and 1, no labels
 * Restore with a single command
 naam apply using naam_labels.xlsx
 tab foreign    // labels restored
+
+
+* -----------------------------------------------------------------------------
+* PART 7: Compare two mapping files (QA across rounds)
+* -----------------------------------------------------------------------------
+
+* After processing multiple rounds, compare their mappings for consistency
+* naam compare using naam_maps_round1.xlsx, using2(naam_maps_round2.xlsx)
