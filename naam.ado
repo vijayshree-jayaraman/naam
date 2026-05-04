@@ -521,9 +521,12 @@ program define naam_id
                 if _rc {
                     destring numeric_code, replace
                 }
+                recast double numeric_code
                 keep string_value numeric_code
                 drop if missing(string_value)
                 drop if missing(numeric_code)
+                assert numeric_code > 0
+                assert numeric_code == floor(numeric_code)
                 duplicates drop string_value numeric_code, force
                 isid string_value
                 isid numeric_code
@@ -558,7 +561,7 @@ program define naam_id
                 * Exclude missing (blank) string values from group() -- they stay missing.
                 tempvar grp
                 sort `v'
-                egen `grp' = group(`v') if !missing(`v')
+                egen double `grp' = group(`v') if !missing(`v')
                 gen double `id_tmp' = `grp'
                 drop `grp'
             }
@@ -607,7 +610,7 @@ program define naam_id
                     tempvar newgrp
                     sort `v'
                     * Exclude missing string values -- they stay missing in numeric_code.
-                    egen `newgrp' = group(`v') if missing(numeric_code) & !missing(`v')
+                    egen double `newgrp' = group(`v') if missing(numeric_code) & !missing(`v')
                     replace numeric_code = `max_existing' + `newgrp' ///
                         if missing(numeric_code) & !missing(`v')
                     drop `newgrp'
@@ -758,9 +761,12 @@ program define naam_id_import
             if _rc {
                 destring numeric_code, replace
             }
+            recast double numeric_code
             keep string_value numeric_code
             drop if missing(string_value)
             drop if missing(numeric_code)
+            assert numeric_code > 0
+            assert numeric_code == floor(numeric_code)
             duplicates drop string_value numeric_code, force
             isid string_value
             isid numeric_code
@@ -776,6 +782,16 @@ program define naam_id_import
         local vl : variable label `v'
         tempvar _naam_order
         quietly gen long `_naam_order' = _n
+
+        if "`vtype'" == "float" {
+            quietly summarize `v' if !missing(`v'), meanonly
+            if r(N) > 0 & (r(max) >= 16777216 | r(min) <= -16777216) {
+                di as err "  `v' is stored as float at or beyond the exact integer range."
+                di as err "  Precision may already be lost; reload a double/long copy of the ID before naam id import."
+                quietly drop `_naam_order'
+                continue
+            }
+        }
 
         * Determine output variable name and check for collision
         if "`suffix'" != "" {
