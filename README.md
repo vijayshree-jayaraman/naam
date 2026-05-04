@@ -126,7 +126,7 @@ Stata 14 or higher. No user-written dependencies.
 
 If you use `naam` in your work, please cite:
 
-> Jayaraman, Vijayshree (2026). "naam: Consistent string encoding, ID management, and label tracking across Stata datasets." Available at: https://github.com/vijayshree-jayaraman/naam and https://ideas.repec.org/c/boc/bocode/naam.html
+> Jayaraman, Vijayshree (2026). "naam: Consistent string encoding, ID management, and label tracking across Stata datasets." 
 
 `naam` was inspired by `codebookout` (Das, 2014):
 
